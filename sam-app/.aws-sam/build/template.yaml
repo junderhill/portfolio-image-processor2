@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Image processing application for portfolio website
+
+  '
+Globals:
+  Function:
+    Timeout: 10
+Outputs:
+  HelloWorldFunctionIamRole:
+    Description: Implicit IAM Role created for Image Processing function
+    Value:
+      Fn::GetAtt:
+      - ImageProcessingFunctionRole
+      - Arn
+  ImageProcessorFunction:
+    Description: Image Processing Lambda Function ARN"
+    Value:
+      Fn::GetAtt:
+      - ImageProcessingFunction
+      - Arn
+Resources:
+  DestImageBucket:
+    Type: AWS::S3::Bucket
+  ImageProcessorFunction:
+    Properties:
+      CodeUri: ImageProcessorFunction
+      Environment:
+        Variables:
+          DbTableName:
+            Ref: PortfolioDatabase
+      Events:
+        ImageUpload:
+          Properties:
+            Bucket:
+              Ref: SourceImageBucket
+            Events: s3:ObjectCreated:*
+          Type: S3
+      Handler: ImageProcessing::ImageProcessing.Function::FunctionHandler
+      Policies:
+      - Statement:
+        - Action:
+          - s3:GetObject
+          - s3:PutObject
+          Effect: Allow
+          Resource: arn:aws:s3:::*
+        - Action:
+          - dynamodb:GetItem
+          - dynamodb:PutItem
+          - dynamodb:Scan
+          - dynamodb:UpdateItem
+          Effect: Allow
+          Resource:
+            Fn::Join:
+            - ''
+            - - 'arn:aws:dynamodb:'
+              - Ref: AWS::Region
+              - ':'
+              - Ref: AWS::AccountId
+              - :table/
+              - Ref: PortfolioDatabase
+        Version: '2012-10-17'
+      Runtime: dotnetcore2.1
+    Type: AWS::Serverless::Function
+  PortfolioDatabase:
+    Properties:
+      PrimaryKey:
+        Name: id
+        Type: String
+    Type: AWS::Serverless::SimpleTable
+  SourceImageBucket:
+    Type: AWS::S3::Bucket
+Transform: AWS::Serverless-2016-10-31
